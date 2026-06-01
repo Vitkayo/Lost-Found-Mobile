@@ -38,6 +38,7 @@ CAMPUS_FOUND_IMAGE_GUIDE.md
 
 # Dev / agent test scripts (local automation only)
 scripts/
+script/
 
 # UI design drafts (Stitch/HTML mockups — not the real app)
 stitch_campus_lost_found/

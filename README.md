@@ -1,5 +1,9 @@
 # Campus Found
 
+**Canonical project folder** — merged from *Lost and Found Mobile 1* (code + tests) and *Mobile 2* (Firebase config, scripts, release APKs). Use this copy for development and submission.
+
+**Location:** `D:\Lost and Found Mobile 1`
+
 Lost & found mobile app for **Royal University of Phnom Penh (RUPP)** — Android (Kotlin), Material Design, MockAPI backend, optional Firebase Storage for photos.
 
 **This release is a student user demo only.** There is no admin panel or staff dashboard. Features like mark-as-claimed, edit posts, and notifications are planned for a future semester.
@@ -45,8 +49,20 @@ Use this order when presenting to your teacher:
 ## Setup
 
 1. Open in Android Studio (or build with Gradle).
-2. Optional: add `app/google-services.json` from Firebase Console for cloud photo uploads. Without it, photos use a local fallback. See `app/google-services.json.example` for the expected package name (`com.lostfound`).
+2. **Firebase (optional):** `app/google-services.json` is included locally for photo uploads. It is gitignored — teammates copy from `app/google-services.json.example` or Firebase Console (`com.lostfound`). Without it, photos use a base64 fallback.
 3. Run on emulator or device (API 28+).
+
+### Local automation (`scripts/`)
+
+From the project root (emulator/device connected):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run_all.ps1
+```
+
+This seeds MockAPI demo items, builds debug APK, installs, seeds a login session (`session.xml.example` → `session.xml`), runs a manual smoke test, then Espresso tests.
+
+Pre-built release APKs (if present): `release/CampusFound-1.1.apk`
 
 ```powershell
 java -jar gradle\wrapper\gradle-wrapper.jar -p . :app:assembleDebug
