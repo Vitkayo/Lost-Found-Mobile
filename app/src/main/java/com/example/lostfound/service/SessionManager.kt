@@ -16,7 +16,8 @@ class SessionManager(context: Context) {
         name: String,
         phone: String,
         studentId: String,
-        rememberMe: Boolean
+        rememberMe: Boolean,
+        profileImage: String = ""
     ) {
         prefs.edit()
             .putBoolean(KEY_LOGGED_IN, true)
@@ -25,6 +26,7 @@ class SessionManager(context: Context) {
             .putString(KEY_PHONE, phone)
             .putString(KEY_STUDENT_ID, studentId)
             .putBoolean(KEY_REMEMBER, rememberMe)
+            .putString(KEY_PROFILE_IMAGE, profileImage)
             .apply()
     }
 
@@ -42,6 +44,8 @@ class SessionManager(context: Context) {
 
     fun getStudentId(): String = prefs.getString(KEY_STUDENT_ID, "") ?: ""
 
+    fun getProfileImage(): String = prefs.getString(KEY_PROFILE_IMAGE, "") ?: ""
+
     fun getDefaultContact(): String = prefs.getString(KEY_DEFAULT_CONTACT, "") ?: ""
 
     fun isRememberMe(): Boolean = prefs.getBoolean(KEY_REMEMBER, false)
@@ -57,7 +61,8 @@ class SessionManager(context: Context) {
         email: String,
         phone: String,
         newPassword: String,
-        confirmPassword: String
+        confirmPassword: String,
+        profileImage: String? = null
     ): Boolean {
         if (name.isBlank()) return false
         if (!CredentialUtils.isValidEmail(email)) return false
@@ -75,7 +80,7 @@ class SessionManager(context: Context) {
             prefs.getString(KEY_REGISTERED_PASSWORD, "") ?: ""
         }
 
-        prefs.edit()
+        val editor = prefs.edit()
             .putString(KEY_NAME, name.trim())
             .putString(KEY_EMAIL, email.trim())
             .putString(KEY_PHONE, normalizedPhone)
@@ -83,7 +88,12 @@ class SessionManager(context: Context) {
             .putString(KEY_REGISTERED_EMAIL, email.trim())
             .putString(KEY_REGISTERED_PHONE, normalizedPhone)
             .putString(KEY_REGISTERED_PASSWORD, password)
-            .apply()
+
+        if (profileImage != null) {
+            editor.putString(KEY_PROFILE_IMAGE, profileImage)
+        }
+
+        editor.apply()
         return true
     }
 
@@ -140,6 +150,9 @@ class SessionManager(context: Context) {
     fun getRegisteredStudentId(): String =
         prefs.getString(KEY_REGISTERED_STUDENT_ID, "") ?: ""
 
+    fun getRegisteredProfileImage(): String =
+        prefs.getString(KEY_PROFILE_IMAGE, "") ?: ""
+
     companion object {
         private const val PREF_NAME = "campus_found_session"
         private const val KEY_LOGGED_IN = "logged_in"
@@ -155,5 +168,6 @@ class SessionManager(context: Context) {
         private const val KEY_REGISTERED_NAME = "registered_name"
         private const val KEY_REGISTERED_STUDENT_ID = "registered_student_id"
         private const val KEY_DARK_MODE = "dark_mode"
+        private const val KEY_PROFILE_IMAGE = "profile_image"
     }
 }

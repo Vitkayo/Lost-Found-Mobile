@@ -1,15 +1,19 @@
 package com.example.lostfound.ui.detail
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.lostfound.data.ItemRepository
 import com.example.lostfound.model.Item
-import com.example.lostfound.service.ItemService
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class ItemDetailViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val itemService = ItemService(application)
+@HiltViewModel
+class ItemDetailViewModel @Inject constructor(
+    private val repository: ItemRepository
+) : ViewModel() {
 
     private val _item = MutableLiveData<Item?>()
     val item: LiveData<Item?> = _item
@@ -17,21 +21,20 @@ class ItemDetailViewModel(application: Application) : AndroidViewModel(applicati
     private val _isLoading = MutableLiveData(false)
     val isLoading: LiveData<Boolean> = _isLoading
 
-    private val _error = MutableLiveData<String?>()
+    private val _error = MutableLiveData<String?>(null)
     val error: LiveData<String?> = _error
 
-    fun loadItem(itemId: String) {
-        _isLoading.value = true
-        itemService.getItemById(itemId, object : ItemService.ItemCallback<Item> {
-            override fun onSuccess(data: Item) {
-                _item.postValue(data)
-                _isLoading.postValue(false)
+    fun loadItem(id: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            try {
+                _item.value = repository.getItemById(id)
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Failed to load item"
+            } finally {
+                _isLoading.value = false
             }
-
-            override fun onError(message: String) {
-                _error.postValue(message)
-                _isLoading.postValue(false)
-            }
-        })
+        }
     }
 }

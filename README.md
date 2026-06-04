@@ -48,9 +48,26 @@ Use this order when presenting to your teacher:
 
 ## Setup
 
-1. Open in Android Studio (or build with Gradle).
-2. **Firebase (optional):** `app/google-services.json` is included locally for photo uploads. It is gitignored — teammates copy from `app/google-services.json.example` or Firebase Console (`com.lostfound`). Without it, photos use a base64 fallback.
-3. Run on emulator or device (API 28+).
+### Run the app (required once per machine)
+
+1. **Android SDK** — Install [Android Studio](https://developer.android.com/studio) (includes SDK + emulator).
+2. **`local.properties`** — Gitignored. Copy the example and fix the SDK path:
+   ```powershell
+   cd "D:\Lost and Found Mobile"
+   copy local.properties.example local.properties
+   ```
+   Edit `sdk.dir=` to your SDK folder (default on Windows):
+   `C:\Users\<You>\AppData\Local\Android\Sdk`
+3. **Open project** in Android Studio → wait for Gradle sync → start an emulator (API 28+) → **Run** ▶ `app`.
+
+**Command line (emulator or USB device connected):**
+```powershell
+cd "D:\Lost and Found Mobile"
+.\gradlew.bat :app:installDebug
+```
+
+4. **Firebase (optional):** Copy `app/google-services.json.example` → `app/google-services.json` from Firebase Console (`com.lostfound`). Without it, the app still runs; photos use a base64 fallback.
+5. **Internet** — Home/Report need network for MockAPI (`https://6a1460d76c7db8aac05469d9.mockapi.io/`).
 
 ### Local automation (`scripts/`)
 

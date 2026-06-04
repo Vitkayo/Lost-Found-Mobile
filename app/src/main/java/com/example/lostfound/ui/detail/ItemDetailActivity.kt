@@ -14,6 +14,9 @@ import com.example.lostfound.util.StatusUtils
 import com.example.lostfound.util.SystemBars
 import com.google.android.material.snackbar.Snackbar
 
+import dagger.hilt.android.AndroidEntryPoint
+
+@AndroidEntryPoint
 class ItemDetailActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityItemDetailBinding
@@ -56,7 +59,7 @@ class ItemDetailActivity : AppCompatActivity() {
                     context = this,
                     textView = binding.detailContact,
                     contactText = contact,
-                    emptyText = ""
+                    emptyText = "",
                 )
                 binding.contactTapHint.visibility = View.VISIBLE
             } else {

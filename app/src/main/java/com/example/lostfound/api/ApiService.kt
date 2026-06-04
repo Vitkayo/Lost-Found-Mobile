@@ -1,7 +1,6 @@
 package com.example.lostfound.api
 
 import com.example.lostfound.model.Item
-import retrofit2.Call
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
@@ -12,17 +11,17 @@ import retrofit2.http.Path
 interface ApiService {
 
     @GET("items")
-    fun getItems(): Call<List<Item>>
+    suspend fun getItems(): List<Item>
 
     @GET("items/{id}")
-    fun getItem(@Path("id") id: String): Call<Item>
+    suspend fun getItem(@Path("id") id: String): Item
 
     @POST("items")
-    fun createItem(@Body item: Item): Call<Item>
+    suspend fun createItem(@Body item: Item): Item
 
     @PUT("items/{id}")
-    fun updateItem(@Path("id") id: String, @Body item: Item): Call<Item>
+    suspend fun updateItem(@Path("id") id: String, @Body item: Item): Item
 
     @DELETE("items/{id}")
-    fun deleteItem(@Path("id") id: String): Call<Item>
+    suspend fun deleteItem(@Path("id") id: String): Item
 }

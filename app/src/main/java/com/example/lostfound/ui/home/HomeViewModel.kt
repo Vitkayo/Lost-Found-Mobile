@@ -1,45 +1,40 @@
 package com.example.lostfound.ui.home
 
-import android.app.Application
 import android.os.Parcelable
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.lostfound.data.ItemRepository
 import com.example.lostfound.model.Item
-import com.example.lostfound.service.ItemService
 import com.example.lostfound.util.ItemSort
 import com.example.lostfound.util.StatusUtils
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class HomeViewModel(
-    application: Application,
+@HiltViewModel
+class HomeViewModel @Inject constructor(
+    private val repository: ItemRepository,
     private val savedStateHandle: SavedStateHandle
-) : AndroidViewModel(application) {
+) : ViewModel() {
 
-    private val itemService = ItemService(application)
+    private val _uiState = MutableStateFlow(HomeUiState())
+    val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-    private val _items = MutableLiveData<List<Item>>(emptyList())
-    val items: LiveData<List<Item>> = _items
+    private var allItems: List<Item> = emptyList()
+    private var scrollState: Parcelable? = savedStateHandle.get<Parcelable>("recycler_scroll_state")
 
-    private val _filteredItems = MutableLiveData<List<Item>>(emptyList())
-    val filteredItems: LiveData<List<Item>> = _filteredItems
-
-    private val _isLoading = MutableLiveData(false)
-    val isLoading: LiveData<Boolean> = _isLoading
-
-    private val _isRefreshing = MutableLiveData(false)
-    val isRefreshing: LiveData<Boolean> = _isRefreshing
-
-    private val _error = MutableLiveData<String?>()
-    val error: LiveData<String?> = _error
-
-    val searchQuery = savedStateHandle.getLiveData("search_query", "")
-    val selectedFilter = savedStateHandle.getLiveData("selected_filter", "All")
-
-    private var scrollState: Parcelable? =
-        savedStateHandle.get<Parcelable>("recycler_scroll_state")
-
-    private var pendingPostedItem: Item? = null
+    init {
+        _uiState.update { it.copy(
+            searchQuery = savedStateHandle["search_query"] ?: "",
+            selectedFilter = savedStateHandle["selected_filter"] ?: "All"
+        )}
+        loadItems()
+    }
 
     fun saveScrollState(state: Parcelable?) {
         scrollState = state
@@ -48,109 +43,87 @@ class HomeViewModel(
 
     fun getScrollState(): Parcelable? = scrollState
 
-    fun loadItemsIfNeeded() {
-        if (!_items.value.isNullOrEmpty() || _isLoading.value == true) return
-        loadItems()
-    }
-
     fun loadItems() {
-        if (_isLoading.value == true) return
-        _error.value = null
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            
+            // Try to load cached items first for immediate UI
+            val cached = repository.getCachedItems()
+            if (cached.isNotEmpty()) {
+                allItems = cached
+                applyFilters()
+            }
 
-        if (_items.value.isNullOrEmpty()) {
-            _isLoading.value = true
-            itemService.getCachedItemsAsync(object : ItemService.ItemCallback<List<Item>> {
-                override fun onSuccess(data: List<Item>) {
-                    if (data.isNotEmpty() && _items.value.isNullOrEmpty()) {
-                        _items.postValue(data)
-                        applyFilters()
-                        _isLoading.postValue(false)
-                    }
-                    fetchItems()
-                }
-
-                override fun onError(message: String) {
-                    fetchItems()
-                }
-            })
-        } else {
-            fetchItems()
+            try {
+                val remote = repository.getItems()
+                allItems = remote
+                _uiState.update { it.copy(isLoading = false) }
+                applyFilters()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(
+                    isLoading = false,
+                    error = e.message ?: "Failed to load items"
+                )}
+            }
         }
     }
 
     fun refreshItems() {
-        if (_isRefreshing.value == true) return
-        _isRefreshing.value = true
-        _error.value = null
-        fetchItems()
+        viewModelScope.launch {
+            _uiState.update { it.copy(isRefreshing = true, error = null) }
+            try {
+                allItems = repository.getItems()
+                _uiState.update { it.copy(isRefreshing = false) }
+                applyFilters()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(
+                    isRefreshing = false,
+                    error = e.message ?: "Refresh failed"
+                )}
+            }
+        }
     }
 
-    /** After posting a new item: show full list from API with newest first. */
     fun refreshAfterNewPost(createdItem: Item? = null) {
+        _uiState.update { it.copy(
+            selectedFilter = "All",
+            searchQuery = ""
+        )}
         savedStateHandle["selected_filter"] = "All"
         savedStateHandle["search_query"] = ""
         clearScrollState()
-        pendingPostedItem = createdItem
+        
         if (createdItem != null) {
-            val merged = ItemSort.newestFirst(
-                listOf(createdItem) + _items.value.orEmpty().filter { it.id != createdItem.id }
+            allItems = ItemSort.newestFirst(
+                listOf(createdItem) + allItems.filter { it.id != createdItem.id }
             )
-            _items.value = merged
             applyFilters()
         }
-        _isRefreshing.value = true
-        _error.value = null
-        fetchItems()
-    }
-
-    private fun fetchItems() {
-        if (_items.value.isNullOrEmpty() && _isLoading.value != true) {
-            _isLoading.postValue(true)
-        }
-        itemService.getAllItems(object : ItemService.ItemCallback<List<Item>> {
-            override fun onSuccess(data: List<Item>) {
-                val posted = pendingPostedItem
-                pendingPostedItem = null
-                val merged = if (posted != null && data.none { it.id == posted.id }) {
-                    ItemSort.newestFirst(listOf(posted) + data)
-                } else {
-                    data
-                }
-                _items.postValue(merged)
-                applyFilters()
-                _isLoading.postValue(false)
-                _isRefreshing.postValue(false)
-            }
-
-            override fun onError(message: String) {
-                _error.postValue(message)
-                _isLoading.postValue(false)
-                _isRefreshing.postValue(false)
-            }
-        })
+        refreshItems()
     }
 
     fun setSearchQuery(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
         savedStateHandle["search_query"] = query
         applyFilters()
     }
 
     fun setSelectedFilter(filter: String) {
+        _uiState.update { it.copy(selectedFilter = filter) }
         savedStateHandle["selected_filter"] = filter
         applyFilters()
     }
 
     private fun applyFilters() {
-        val allItems = _items.value.orEmpty()
-        val query = searchQuery.value.orEmpty()
-        val filter = selectedFilter.value ?: "All"
+        val query = _uiState.value.searchQuery
+        val filter = _uiState.value.selectedFilter
 
         val filtered = ItemSort.newestFirst(
             allItems.filter { item ->
                 StatusUtils.matchesSearch(item, query) && StatusUtils.matchesFilter(item, filter)
             }
         )
-        _filteredItems.postValue(filtered)
+        _uiState.update { it.copy(items = filtered) }
     }
 
     fun clearScrollState() {

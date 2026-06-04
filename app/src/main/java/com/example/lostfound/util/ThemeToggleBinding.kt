@@ -13,6 +13,8 @@ object ThemeToggleBinding {
 
     fun bind(button: ImageButton, activity: AppCompatActivity) {
         button.scaleType = ImageView.ScaleType.FIT_CENTER
+        button.adjustViewBounds = false
+        button.cropToPadding = false
         val ripple = TypedValue()
         if (activity.theme.resolveAttribute(
                 android.R.attr.selectableItemBackgroundBorderless,
@@ -32,13 +34,17 @@ object ThemeToggleBinding {
     fun refreshIcon(button: ImageButton, activity: AppCompatActivity) {
         val isDark = SessionManager(activity).isDarkMode()
         if (isDark) {
+            // Flipped icon: filled side points toward light mode.
             button.setImageResource(R.drawable.ic_theme_light)
+            button.scaleX = 1f
             button.contentDescription = activity.getString(R.string.switch_to_light_mode)
         } else {
             button.setImageResource(R.drawable.ic_theme_dark)
+            button.scaleX = 1f
             button.contentDescription = activity.getString(R.string.switch_to_dark_mode)
         }
         ImageViewCompat.setImageTintList(button, null)
+        button.invalidate()
     }
 
     fun refreshForFragment(fragment: Fragment) {

@@ -1,11 +1,7 @@
 package com.example.lostfound
 
 import android.app.Application
-import com.example.lostfound.util.ThemeHelper
+import dagger.hilt.android.HiltAndroidApp
 
-class CampusFoundApp : Application() {
-    override fun onCreate() {
-        super.onCreate()
-        ThemeHelper.applySavedTheme(this)
-    }
-}
+@HiltAndroidApp
+class CampusFoundApp : Application()

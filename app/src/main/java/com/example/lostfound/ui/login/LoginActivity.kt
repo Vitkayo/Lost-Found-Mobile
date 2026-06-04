@@ -15,6 +15,9 @@ import com.example.lostfound.util.SystemBars
 import com.example.lostfound.util.ThemeToggleBinding
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
+import dagger.hilt.android.AndroidEntryPoint
+
+@AndroidEntryPoint
 class LoginActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityLoginBinding
@@ -86,13 +89,15 @@ class LoginActivity : AppCompatActivity() {
         }
         val phone = sessionManager.getRegisteredPhone()
         val studentId = sessionManager.getRegisteredStudentId()
+        val profileImage = sessionManager.getRegisteredProfileImage()
 
         sessionManager.saveSession(
             email = email,
             name = name,
             phone = phone,
             studentId = studentId,
-            rememberMe = rememberMe
+            rememberMe = rememberMe,
+            profileImage = profileImage
         )
         navigateToMain()
     }

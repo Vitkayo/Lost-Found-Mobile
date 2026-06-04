@@ -14,6 +14,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.lostfound.R
@@ -22,7 +23,11 @@ import com.example.lostfound.model.Item
 import com.example.lostfound.ui.detail.ItemDetailActivity
 import com.example.lostfound.util.ThemeToggleBinding
 import com.google.android.material.chip.Chip
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
+@AndroidEntryPoint
 class HomeFragment : Fragment() {
 
     private var _binding: FragmentHomeBinding? = null
@@ -41,7 +46,7 @@ class HomeFragment : Fragment() {
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
-        savedInstanceState: Bundle?
+        savedInstanceState: Bundle?,
     ): View {
         _binding = FragmentHomeBinding.inflate(inflater, container, false)
         return binding.root
@@ -61,8 +66,6 @@ class HomeFragment : Fragment() {
         binding.addItemFab.setOnClickListener {
             findNavController().navigate(R.id.postItemFragment)
         }
-
-        viewModel.loadItemsIfNeeded()
     }
 
     override fun onResume() {
@@ -78,7 +81,7 @@ class HomeFragment : Fragment() {
 
     private fun setupSwipeRefresh() {
         binding.swipeRefresh.setColorSchemeColors(
-            ContextCompat.getColor(requireContext(), R.color.primary)
+            ContextCompat.getColor(requireContext(), R.color.primary),
         )
         binding.swipeRefresh.setOnRefreshListener {
             viewModel.refreshItems()
@@ -96,7 +99,7 @@ class HomeFragment : Fragment() {
 
     private fun setupFilters() {
         val filters = resources.getStringArray(R.array.filters)
-        val selected = viewModel.selectedFilter.value ?: "All"
+        val selected = viewModel.uiState.value.selectedFilter
         binding.filterChipGroup.setOnCheckedStateChangeListener(null)
         binding.filterChipGroup.removeAllViews()
 
@@ -112,14 +115,14 @@ class HomeFragment : Fragment() {
 
         binding.filterChipGroup.setOnCheckedStateChangeListener { group, checkedIds ->
             if (checkedIds.isEmpty()) {
-                syncChipSelection(viewModel.selectedFilter.value ?: "All")
+                syncChipSelection(viewModel.uiState.value.selectedFilter)
                 return@setOnCheckedStateChangeListener
             }
-            val chip = group.findViewById<Chip>(checkedIds.first()) ?: return@setOnCheckedStateChangeListener
+            val chipId = checkedIds.first()
+            val chip = group.findViewById<Chip>(chipId) ?: return@setOnCheckedStateChangeListener
             val filter = chip.text.toString()
-            if (filter != viewModel.selectedFilter.value) {
+            if (filter != viewModel.uiState.value.selectedFilter) {
                 viewModel.setSelectedFilter(filter)
-                updateChipStyles(filter)
             }
         }
 
@@ -144,8 +147,13 @@ class HomeFragment : Fragment() {
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN ->
                     view.parent?.requestDisallowInterceptTouchEvent(true)
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
+
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     view.parent?.requestDisallowInterceptTouchEvent(false)
+                    if (event.actionMasked == MotionEvent.ACTION_UP) {
+                        view.performClick()
+                    }
+                }
             }
             false
         }
@@ -156,26 +164,18 @@ class HomeFragment : Fragment() {
             val chip = binding.filterChipGroup.getChildAt(i) as Chip
             val selected = chip.text.toString() == selectedFilter
             chip.setChipBackgroundColorResource(
-                if (selected) R.color.primary else R.color.surface_container_high
+                if (selected) R.color.primary else R.color.surface_container_high,
             )
-            chip.setTextColor(
-                resources.getColor(
-                    if (selected) R.color.on_primary else R.color.on_surface_variant,
-                    null
-                )
+            val textColor = ContextCompat.getColor(
+                requireContext(),
+                if (selected) R.color.on_primary else R.color.on_surface_variant
             )
+            chip.setTextColor(textColor)
         }
     }
 
     private fun setupSearch() {
-        binding.searchInput.setText(viewModel.searchQuery.value)
-        viewModel.searchQuery.observe(viewLifecycleOwner) { query ->
-            val current = binding.searchInput.text?.toString().orEmpty()
-            if (current != query) {
-                binding.searchInput.setText(query)
-                binding.searchInput.setSelection(query.length)
-            }
-        }
+        binding.searchInput.setText(viewModel.uiState.value.searchQuery)
         binding.searchInput.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
@@ -189,42 +189,34 @@ class HomeFragment : Fragment() {
     }
 
     private fun observeViewModel() {
-        viewModel.filteredItems.observe(viewLifecycleOwner) { items ->
-            adapter.submitList(items) {
-                if (items.isNotEmpty() &&
-                    (viewModel.getScrollState() == null || binding.swipeRefresh.isRefreshing)
-                ) {
-                    binding.itemsRecyclerView.scrollToPosition(0)
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.uiState.collectLatest { state ->
+                adapter.submitList(state.items) {
+                    if (state.items.isNotEmpty() && (viewModel.getScrollState() == null || state.isRefreshing)) {
+                        binding.itemsRecyclerView.scrollToPosition(0)
+                    }
+                }
+
+                binding.emptyStateLayout.visibility =
+                    if (state.items.isEmpty() && !state.isLoading && !state.isRefreshing) View.VISIBLE else View.GONE
+
+                binding.loadingProgress.visibility =
+                    if (state.isLoading && !state.isRefreshing) View.VISIBLE else View.GONE
+
+                binding.swipeRefresh.isRefreshing = state.isRefreshing
+
+                binding.errorStateLayout.visibility =
+                    if (!state.error.isNullOrBlank()) View.VISIBLE else View.GONE
+                binding.errorMessageText.text = state.error
+
+                syncChipSelection(state.selectedFilter)
+
+                val currentSearch = binding.searchInput.text?.toString().orEmpty()
+                if (currentSearch != state.searchQuery) {
+                    binding.searchInput.setText(state.searchQuery)
+                    binding.searchInput.setSelection(state.searchQuery.length)
                 }
             }
-            binding.emptyStateLayout.visibility =
-                if (items.isEmpty() && viewModel.isLoading.value != true &&
-                    viewModel.isRefreshing.value != true
-                ) {
-                    View.VISIBLE
-                } else {
-                    View.GONE
-                }
-        }
-
-        viewModel.isLoading.observe(viewLifecycleOwner) { loading ->
-            val refreshing = viewModel.isRefreshing.value == true
-            binding.loadingProgress.visibility =
-                if (loading && !refreshing) View.VISIBLE else View.GONE
-        }
-
-        viewModel.isRefreshing.observe(viewLifecycleOwner) { refreshing ->
-            binding.swipeRefresh.isRefreshing = refreshing
-        }
-
-        viewModel.error.observe(viewLifecycleOwner) { error ->
-            binding.errorStateLayout.visibility =
-                if (!error.isNullOrBlank()) View.VISIBLE else View.GONE
-            binding.errorMessageText.text = error
-        }
-
-        viewModel.selectedFilter.observe(viewLifecycleOwner) { filter ->
-            syncChipSelection(filter ?: "All")
         }
     }
 

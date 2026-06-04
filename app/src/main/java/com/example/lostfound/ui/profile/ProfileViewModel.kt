@@ -4,15 +4,22 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.viewModelScope
+import com.example.lostfound.data.ItemRepository
 import com.example.lostfound.model.Item
-import com.example.lostfound.service.ItemService
 import com.example.lostfound.service.SessionManager
 import com.example.lostfound.util.CredentialUtils
 import com.example.lostfound.util.ItemSort
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class ProfileViewModel(application: Application) : AndroidViewModel(application) {
+@HiltViewModel
+class ProfileViewModel @Inject constructor(
+    application: Application,
+    private val repository: ItemRepository
+) : AndroidViewModel(application) {
 
-    private val itemService = ItemService(application)
     private val sessionManager = SessionManager(application)
 
     private val _myItems = MutableLiveData<List<Item>>(emptyList())
@@ -33,6 +40,9 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     private val _phone = MutableLiveData(sessionManager.getPhone())
     val phone: LiveData<String> = _phone
 
+    private val _profileImage = MutableLiveData(sessionManager.getProfileImage())
+    val profileImage: LiveData<String> = _profileImage
+
     private val _totalPosts = MutableLiveData(0)
     val totalPosts: LiveData<Int> = _totalPosts
 
@@ -47,6 +57,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         _email.value = sessionManager.getEmail()
         _studentId.value = sessionManager.getStudentId()
         _phone.value = sessionManager.getPhone()
+        _profileImage.value = sessionManager.getProfileImage()
     }
 
     sealed class ProfileUpdateResult {
@@ -63,7 +74,8 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         email: String,
         phone: String,
         newPassword: String,
-        confirmPassword: String
+        confirmPassword: String,
+        profileImage: String? = null
     ): ProfileUpdateResult {
         if (name.isBlank()) return ProfileUpdateResult.NameRequired
         if (!CredentialUtils.isValidEmail(email)) return ProfileUpdateResult.InvalidEmail
@@ -75,7 +87,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
             if (newPassword != confirmPassword) return ProfileUpdateResult.PasswordMismatch
         }
 
-        if (!sessionManager.updateAccount(name, email, phone, newPassword, confirmPassword)) {
+        if (!sessionManager.updateAccount(name, email, phone, newPassword, confirmPassword, profileImage)) {
             return ProfileUpdateResult.InvalidEmail
         }
 
@@ -93,44 +105,41 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun loadMyItems() {
-        _isLoading.value = true
-        val currentUser = sessionManager.getUserName().lowercase()
-
-        itemService.getAllItems(object : ItemService.ItemCallback<List<Item>> {
-            override fun onSuccess(data: List<Item>) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            val currentUser = sessionManager.getUserName().lowercase()
+            try {
+                val data = repository.getItems()
                 val mine = data.filter {
                     it.reporterName?.lowercase() == currentUser ||
                         it.reporterName?.lowercase() ==
                         sessionManager.getEmail().substringBefore("@").lowercase()
                 }
-                _myItems.postValue(ItemSort.newestFirst(mine))
-                _totalPosts.postValue(mine.size)
-                _lostCount.postValue(mine.count { it.status.equals("lost", ignoreCase = true) })
-                _foundCount.postValue(mine.count { it.status.equals("found", ignoreCase = true) })
-                _isLoading.postValue(false)
+                _myItems.value = ItemSort.newestFirst(mine)
+                _totalPosts.value = mine.size
+                _lostCount.value = mine.count { it.status.equals("lost", ignoreCase = true) }
+                _foundCount.value = mine.count { it.status.equals("found", ignoreCase = true) }
+            } catch (e: Exception) {
+                _myItems.value = emptyList()
+            } finally {
+                _isLoading.value = false
             }
-
-            override fun onError(message: String) {
-                _myItems.postValue(emptyList())
-                _isLoading.postValue(false)
-            }
-        })
-    }
-
-    fun deleteItem(itemId: String, onComplete: (Boolean) -> Unit) {
-        itemService.deleteItem(itemId, object : ItemService.ItemCallback<Item> {
-            override fun onSuccess(data: Item) {
-                loadMyItems()
-                onComplete(true)
-            }
-
-            override fun onError(message: String) {
-                onComplete(false)
-            }
-        })
+        }
     }
 
     fun logout() {
         sessionManager.clearSession()
+    }
+
+    fun deleteItem(itemId: String, onComplete: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                repository.deleteItem(itemId)
+                loadMyItems()
+                onComplete(true)
+            } catch (e: Exception) {
+                onComplete(false)
+            }
+        }
     }
 }

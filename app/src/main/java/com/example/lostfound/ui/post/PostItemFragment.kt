@@ -3,7 +3,6 @@ package com.example.lostfound.ui.post
 import android.Manifest
 import android.app.DatePickerDialog
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -27,7 +26,11 @@ import com.example.lostfound.util.LocationHelper
 import com.example.lostfound.util.ThemeToggleBinding
 import com.google.android.material.snackbar.Snackbar
 import java.util.Calendar
+import java.util.Locale
 
+import dagger.hilt.android.AndroidEntryPoint
+
+@AndroidEntryPoint
 class PostItemFragment : Fragment() {
 
     private var _binding: FragmentPostItemBinding? = null
@@ -40,7 +43,7 @@ class PostItemFragment : Fragment() {
     private var isLostSelected = true
 
     private val imagePicker = registerForActivityResult(
-        ActivityResultContracts.GetContent()
+        ActivityResultContracts.GetContent(),
     ) { uri ->
         if (uri != null) {
             val path = ImageStorageUtil.persistImage(requireContext(), uri)
@@ -55,7 +58,7 @@ class PostItemFragment : Fragment() {
     }
 
     private val locationPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
+        ActivityResultContracts.RequestPermission(),
     ) { granted ->
         if (granted) {
             requestCurrentLocation()
@@ -238,11 +241,10 @@ class PostItemFragment : Fragment() {
                 binding.useLocationButton.isEnabled = true
                 saveDraftFromForm()
             },
-            onError = { message ->
-                binding.useLocationButton.isEnabled = true
-                Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG).show()
-            }
-        )
+        ) { message ->
+            binding.useLocationButton.isEnabled = true
+            Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG).show()
+        }
     }
 
     private fun showDatePicker() {
@@ -250,13 +252,13 @@ class PostItemFragment : Fragment() {
         DatePickerDialog(
             requireContext(),
             { _, year, month, day ->
-                val formatted = String.format("%04d-%02d-%02d", year, month + 1, day)
+                val formatted = String.format(Locale.US, "%04d-%02d-%02d", year, month + 1, day)
                 binding.dateInput.setText(formatted)
                 saveDraftFromForm()
             },
-            calendar.get(Calendar.YEAR),
-            calendar.get(Calendar.MONTH),
-            calendar.get(Calendar.DAY_OF_MONTH)
+            calendar[Calendar.YEAR],
+            calendar[Calendar.MONTH],
+            calendar[Calendar.DAY_OF_MONTH]
         ).show()
     }
 

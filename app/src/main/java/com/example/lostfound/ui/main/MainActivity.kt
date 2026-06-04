@@ -11,6 +11,9 @@ import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
 import com.example.lostfound.databinding.ActivityMainBinding
 
+import dagger.hilt.android.AndroidEntryPoint
+
+@AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
@@ -28,7 +31,7 @@ class MainActivity : AppCompatActivity() {
             binding.root.updatePadding(
                 left = systemBars.left,
                 top = systemBars.top,
-                right = systemBars.right
+                right = systemBars.right,
             )
             binding.bottomNavigation.updatePadding(bottom = systemBars.bottom)
             binding.bottomNavigation.visibility =

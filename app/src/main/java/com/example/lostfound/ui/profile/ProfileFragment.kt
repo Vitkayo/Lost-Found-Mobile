@@ -18,9 +18,15 @@ import com.example.lostfound.ui.detail.ItemDetailActivity
 import com.example.lostfound.ui.login.LoginActivity
 import com.example.lostfound.util.ThemeToggleBinding
 import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.result.contract.ActivityResultContracts
+import com.example.lostfound.util.ImageLoader
+import com.example.lostfound.util.ImageStorageUtil
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 
+import dagger.hilt.android.AndroidEntryPoint
+
+@AndroidEntryPoint
 class ProfileFragment : Fragment() {
 
     private var _binding: FragmentProfileBinding? = null
@@ -28,6 +34,21 @@ class ProfileFragment : Fragment() {
 
     private val viewModel: ProfileViewModel by viewModels()
     private lateinit var adapter: ProfileItemAdapter
+
+    private var tempProfilePath: String? = null
+    private var dialogAvatarImage: android.widget.ImageView? = null
+
+    private val imagePicker = registerForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let {
+            val path = ImageStorageUtil.persistImage(requireContext(), it)
+            if (path != null) {
+                tempProfilePath = path
+                dialogAvatarImage?.let { iv -> ImageLoader.load(iv, path) }
+            }
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -64,6 +85,14 @@ class ProfileFragment : Fragment() {
         dialogBinding.editEmailInput.setText(viewModel.email.value)
         dialogBinding.editPhoneInput.setText(viewModel.phone.value)
 
+        tempProfilePath = viewModel.profileImage.value
+        dialogAvatarImage = dialogBinding.editAvatarImage
+        ImageLoader.load(dialogBinding.editAvatarImage, tempProfilePath)
+
+        dialogBinding.editAvatarArea.setOnClickListener {
+            imagePicker.launch("image/*")
+        }
+
         val dialog = MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.edit_profile)
             .setView(dialogBinding.root)
@@ -86,7 +115,7 @@ class ProfileFragment : Fragment() {
                 val confirmPassword = dialogBinding.editConfirmPasswordInput.text?.toString().orEmpty()
 
                 when (
-                    viewModel.updateAccount(name, email, phone, newPassword, confirmPassword)
+                    viewModel.updateAccount(name, email, phone, newPassword, confirmPassword, tempProfilePath)
                 ) {
                     ProfileViewModel.ProfileUpdateResult.Success -> {
                         dialog.dismiss()
@@ -113,6 +142,9 @@ class ProfileFragment : Fragment() {
                 }
             }
         }
+        dialog.setOnDismissListener {
+            dialogAvatarImage = null
+        }
         dialog.show()
     }
 
@@ -128,6 +160,10 @@ class ProfileFragment : Fragment() {
     private fun observeViewModel() {
         viewModel.userName.observe(viewLifecycleOwner) {
             binding.userNameText.text = it
+        }
+
+        viewModel.profileImage.observe(viewLifecycleOwner) {
+            ImageLoader.load(binding.avatarImage, it)
         }
 
         viewModel.email.observe(viewLifecycleOwner) {

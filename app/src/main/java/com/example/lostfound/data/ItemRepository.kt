@@ -1,32 +1,57 @@
-package com.example.lostfound.service
+package com.example.lostfound.data
 
-import android.content.Context
-import com.example.lostfound.db.CampusDatabase
+import com.example.lostfound.api.ApiService
+import com.example.lostfound.db.CachedItemDao
+import com.example.lostfound.db.RecentItemDao
 import com.example.lostfound.db.CachedItemRecord
 import com.example.lostfound.db.RecentItemRecord
 import com.example.lostfound.model.Item
+import com.example.lostfound.util.ItemSort
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class LocalStorageService(context: Context) {
+@Singleton
+class ItemRepository @Inject constructor(
+    private val apiService: ApiService,
+    private val cachedDao: CachedItemDao,
+    private val recentDao: RecentItemDao
+) {
 
-    private val database = CampusDatabase.getInstance(context)
-    private val cachedDao = database.cachedItemDao()
-    private val recentDao = database.recentItemDao()
-
-    fun cacheItems(items: List<Item>) {
-        cachedDao.clearAll()
-        cachedDao.insertAll(items.map { it.toCachedRecord() })
+    suspend fun getItems(): List<Item> = withContext(Dispatchers.IO) {
+        try {
+            val remoteItems = apiService.getItems()
+            val sorted = ItemSort.newestFirst(remoteItems)
+            cachedDao.clearAll()
+            cachedDao.insertAll(sorted.map { it.toCachedRecord() })
+            sorted
+        } catch (e: Exception) {
+            val cached = cachedDao.getAll().map { it.toItem() }
+            if (cached.isNotEmpty()) cached else throw e
+        }
     }
 
-    fun getCachedItems(): List<Item> {
-        return cachedDao.getAll().map { it.toItem() }
+    suspend fun getCachedItems(): List<Item> = withContext(Dispatchers.IO) {
+        cachedDao.getAll().map { it.toItem() }
     }
 
-    fun addRecentlyViewed(item: Item) {
+    suspend fun getItemById(id: String): Item = withContext(Dispatchers.IO) {
+        val item = apiService.getItem(id)
         recentDao.insert(item.toRecentRecord())
+        item
     }
 
-    fun getRecentlyViewed(): List<Item> {
-        return recentDao.getAll().map { it.toItem() }
+    suspend fun createItem(item: Item): Item = withContext(Dispatchers.IO) {
+        apiService.createItem(item)
+    }
+
+    suspend fun deleteItem(id: String): Item = withContext(Dispatchers.IO) {
+        apiService.deleteItem(id)
+    }
+
+    suspend fun getRecentlyViewed(): List<Item> = withContext(Dispatchers.IO) {
+        recentDao.getAll().map { it.toItem() }
     }
 
     private fun Item.toCachedRecord() = CachedItemRecord(

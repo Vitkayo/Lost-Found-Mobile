@@ -6,8 +6,11 @@ build/
 # Local SDK path (machine-specific)
 local.properties
 
-# Android Studio
+# Android Studio (keep run config + gradle link for teammates)
 .idea/
+!.idea/gradle.xml
+!.idea/misc.xml
+!.idea/runConfigurations/
 *.iml
 .navigation/
 captures/
