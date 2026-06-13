@@ -3,8 +3,16 @@ package com.example.lostfound.service
 import android.content.Context
 import android.content.SharedPreferences
 import com.example.lostfound.util.CredentialUtils
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class SessionManager(context: Context) {
+@Singleton
+class SessionManager @Inject constructor(@ApplicationContext context: Context) {
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
@@ -169,5 +177,15 @@ class SessionManager(context: Context) {
         private const val KEY_REGISTERED_STUDENT_ID = "registered_student_id"
         private const val KEY_DARK_MODE = "dark_mode"
         private const val KEY_PROFILE_IMAGE = "profile_image"
+    }
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+object SessionModule {
+    @Provides
+    @Singleton
+    fun provideSessionManager(@ApplicationContext context: Context): SessionManager {
+        return SessionManager(context)
     }
 }

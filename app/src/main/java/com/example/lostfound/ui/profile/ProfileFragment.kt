@@ -23,6 +23,10 @@ import com.example.lostfound.util.ImageLoader
 import com.example.lostfound.util.ImageStorageUtil
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.launch
 
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -81,11 +85,12 @@ class ProfileFragment : Fragment() {
 
     private fun showEditProfileDialog() {
         val dialogBinding = DialogEditProfileBinding.inflate(layoutInflater)
-        dialogBinding.editNameInput.setText(viewModel.userName.value)
-        dialogBinding.editEmailInput.setText(viewModel.email.value)
-        dialogBinding.editPhoneInput.setText(viewModel.phone.value)
+        val state = viewModel.uiState.value
+        dialogBinding.editNameInput.setText(state.userName)
+        dialogBinding.editEmailInput.setText(state.email)
+        dialogBinding.editPhoneInput.setText(state.phone)
 
-        tempProfilePath = viewModel.profileImage.value
+        tempProfilePath = state.profileImage
         dialogAvatarImage = dialogBinding.editAvatarImage
         ImageLoader.load(dialogBinding.editAvatarImage, tempProfilePath)
 
@@ -158,44 +163,30 @@ class ProfileFragment : Fragment() {
     }
 
     private fun observeViewModel() {
-        viewModel.userName.observe(viewLifecycleOwner) {
-            binding.userNameText.text = it
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.uiState.collect { state ->
+                    binding.userNameText.text = state.userName
+                    ImageLoader.load(binding.avatarImage, state.profileImage)
+                    
+                    updateProfileSubtitle(state)
+                    
+                    adapter.submitList(state.myItems)
+                    binding.emptyPostsText.visibility = if (state.myItems.isEmpty()) View.VISIBLE else View.GONE
+                    binding.profileLoading.visibility = if (state.isLoading) View.VISIBLE else View.GONE
+                    
+                    binding.totalPostsText.text = state.totalPosts.toString()
+                    binding.lostCountText.text = state.lostCount.toString()
+                    binding.foundCountText.text = state.foundCount.toString()
+                }
+            }
         }
-
-        viewModel.profileImage.observe(viewLifecycleOwner) {
-            ImageLoader.load(binding.avatarImage, it)
-        }
-
-        viewModel.email.observe(viewLifecycleOwner) {
-            updateProfileSubtitle()
-        }
-
-        viewModel.studentId.observe(viewLifecycleOwner) {
-            updateProfileSubtitle()
-        }
-
-        viewModel.phone.observe(viewLifecycleOwner) {
-            updateProfileSubtitle()
-        }
-
-        viewModel.myItems.observe(viewLifecycleOwner) { items ->
-            adapter.submitList(items)
-            binding.emptyPostsText.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
-        }
-
-        viewModel.isLoading.observe(viewLifecycleOwner) { loading ->
-            binding.profileLoading.visibility = if (loading) View.VISIBLE else View.GONE
-        }
-
-        viewModel.totalPosts.observe(viewLifecycleOwner) { binding.totalPostsText.text = it.toString() }
-        viewModel.lostCount.observe(viewLifecycleOwner) { binding.lostCountText.text = it.toString() }
-        viewModel.foundCount.observe(viewLifecycleOwner) { binding.foundCountText.text = it.toString() }
     }
 
-    private fun updateProfileSubtitle() {
-        val studentId = viewModel.studentId.value.orEmpty()
-        val email = viewModel.email.value.orEmpty()
-        val phone = viewModel.phone.value.orEmpty()
+    private fun updateProfileSubtitle(state: ProfileUiState) {
+        val studentId = state.studentId
+        val email = state.email
+        val phone = state.phone
 
         binding.studentIdText.text = when {
             studentId.isNotBlank() -> getString(R.string.student_id_label, studentId)

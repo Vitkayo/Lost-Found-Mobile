@@ -8,6 +8,8 @@ import com.example.lostfound.db.RecentItemRecord
 import com.example.lostfound.model.Item
 import com.example.lostfound.util.ItemSort
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -18,6 +20,26 @@ class ItemRepository @Inject constructor(
     private val cachedDao: CachedItemDao,
     private val recentDao: RecentItemDao
 ) {
+
+    val itemsFlow: Flow<List<Item>> = cachedDao.getAllFlow().map { records ->
+        records.map { it.toItem() }
+    }
+
+    val recentItemsFlow: Flow<List<Item>> = recentDao.getAllFlow().map { records ->
+        records.map { it.toItem() }
+    }
+
+    suspend fun refreshItems() = withContext(Dispatchers.IO) {
+        try {
+            val remoteItems = apiService.getItems()
+            val sorted = ItemSort.newestFirst(remoteItems)
+            cachedDao.clearAll()
+            cachedDao.insertAll(sorted.map { it.toCachedRecord() })
+        } catch (e: Exception) {
+            // Log error or handle appropriately
+            if (cachedDao.getAll().isEmpty()) throw e
+        }
+    }
 
     suspend fun getItems(): List<Item> = withContext(Dispatchers.IO) {
         try {

@@ -237,6 +237,15 @@
                 </LinearLayout>
             </LinearLayout>
 
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/markClaimedButton"
+                style="@style/Widget.CampusFound.Button.Primary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="Mark as Claimed"
+                android:visibility="gone" />
+
             <ProgressBar
                 android:id="@+id/detailLoading"
                 android:layout_width="wrap_content"

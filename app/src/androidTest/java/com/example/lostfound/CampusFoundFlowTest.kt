@@ -16,6 +16,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.ActivityTestRule
 import com.example.lostfound.service.SessionManager
 import com.example.lostfound.ui.login.LoginActivity
+import androidx.test.espresso.matcher.ViewMatchers.withTagValue
+import org.hamcrest.Matchers.`is` as hamcrestIs
 import org.hamcrest.Matchers.allOf
 import org.junit.Before
 import org.junit.Rule
@@ -180,8 +182,8 @@ class CampusFoundFlowTest {
         launchLoggedInMain()
         waitForApi()
 
-        onView(withText("Electronics")).perform(click())
-        onView(withText("Electronics")).check(matches(isDisplayed()))
+        onView(withTagValue(hamcrestIs("filter_chip_Electronics"))).perform(click())
+        onView(withTagValue(hamcrestIs("filter_chip_Electronics"))).check(matches(isDisplayed()))
     }
 
     @Test

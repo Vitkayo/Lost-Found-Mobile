@@ -33,10 +33,15 @@ class ItemAdapter(
     ) : RecyclerView.ViewHolder(binding.root) {
 
         fun bind(item: Item) {
+            val context = binding.root.context
             binding.itemTitle.text = item.title.orEmpty()
-            binding.itemMeta.text = "${item.category.orEmpty()} • ${item.location.orEmpty()}"
+            binding.itemMeta.text = context.getString(
+                com.example.lostfound.R.string.item_meta_format,
+                item.category.orEmpty(),
+                item.location.orEmpty()
+            )
             binding.itemDate.text = DateUtils.formatPostedDate(item.createdAt ?: item.date)
-            StatusUtils.applyStatusBadge(binding.root.context, item.status, binding.statusBadge)
+            StatusUtils.applyStatusBadge(context, item.status, binding.statusBadge)
             ImageLoader.loadThumbnail(binding.itemImage, item.imageUrl)
             binding.root.setOnClickListener { onItemClick(item) }
         }

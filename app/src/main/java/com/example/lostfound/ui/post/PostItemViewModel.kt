@@ -1,15 +1,31 @@
 package com.example.lostfound.ui.post
 
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.lostfound.data.ItemRepository
 import com.example.lostfound.model.Item
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+data class PostItemUiState(
+    val isSubmitting: Boolean = false,
+    val submitSuccess: Boolean? = null,
+    val error: String? = null,
+    val title: String = "",
+    val category: String = "",
+    val description: String = "",
+    val location: String = "",
+    val contact: String = "",
+    val date: String = "",
+    val status: String = "lost",
+    val imageUrl: String = ""
+)
 
 @HiltViewModel
 class PostItemViewModel @Inject constructor(
@@ -17,26 +33,23 @@ class PostItemViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val _isSubmitting = MutableLiveData(false)
-    val isSubmitting: LiveData<Boolean> = _isSubmitting
-
-    private val _submitSuccess = MutableLiveData<Boolean?>(null)
-    val submitSuccess: LiveData<Boolean?> = _submitSuccess
-
-    private val _error = MutableLiveData<String?>(null)
-    val error: LiveData<String?> = _error
+    private val _uiState = MutableStateFlow(PostItemUiState())
+    val uiState: StateFlow<PostItemUiState> = _uiState.asStateFlow()
 
     private var createdItem: Item? = null
 
-    // Draft properties from SavedStateHandle
-    val title = savedStateHandle.getLiveData("draft_title", "")
-    val category = savedStateHandle.getLiveData("draft_category", "")
-    val description = savedStateHandle.getLiveData("draft_description", "")
-    val location = savedStateHandle.getLiveData("draft_location", "")
-    val contact = savedStateHandle.getLiveData("draft_contact", "")
-    val date = savedStateHandle.getLiveData("draft_date", "")
-    val status = savedStateHandle.getLiveData("draft_status", "lost")
-    val imageUrl = savedStateHandle.getLiveData("draft_image_url", "")
+    init {
+        _uiState.update { it.copy(
+            title = savedStateHandle["draft_title"] ?: "",
+            category = savedStateHandle["draft_category"] ?: "",
+            description = savedStateHandle["draft_description"] ?: "",
+            location = savedStateHandle["draft_location"] ?: "",
+            contact = savedStateHandle["draft_contact"] ?: "",
+            date = savedStateHandle["draft_date"] ?: "",
+            status = savedStateHandle["draft_status"] ?: "lost",
+            imageUrl = savedStateHandle["draft_image_url"] ?: ""
+        )}
+    }
 
     fun saveDraft(
         titleValue: String,
@@ -56,6 +69,17 @@ class PostItemViewModel @Inject constructor(
         savedStateHandle["draft_date"] = dateValue
         savedStateHandle["draft_status"] = statusValue
         savedStateHandle["draft_image_url"] = imageUrlValue
+        
+        _uiState.update { it.copy(
+            title = titleValue,
+            category = categoryValue,
+            description = descriptionValue,
+            location = locationValue,
+            contact = contactValue,
+            date = dateValue,
+            status = statusValue,
+            imageUrl = imageUrlValue
+        )}
     }
 
     fun submitItem(
@@ -69,13 +93,12 @@ class PostItemViewModel @Inject constructor(
         imagePathOrUri: String
     ) {
         if (titleValue.isBlank() || categoryValue.isBlank()) {
-            _error.value = "Title and Category are required"
+            _uiState.update { it.copy(error = "Title and Category are required") }
             return
         }
 
         viewModelScope.launch {
-            _isSubmitting.value = true
-            _error.value = null
+            _uiState.update { it.copy(isSubmitting = true, error = null) }
             try {
                 val newItem = Item(
                     title = titleValue,
@@ -88,12 +111,13 @@ class PostItemViewModel @Inject constructor(
                     imageUrl = imagePathOrUri
                 )
                 createdItem = repository.createItem(newItem)
-                _submitSuccess.value = true
+                _uiState.update { it.copy(submitSuccess = true, isSubmitting = false) }
             } catch (e: Exception) {
-                _error.value = e.message ?: "Submission failed"
-                _submitSuccess.value = false
-            } finally {
-                _isSubmitting.value = false
+                _uiState.update { it.copy(
+                    error = e.message ?: "Submission failed",
+                    submitSuccess = false,
+                    isSubmitting = false
+                )}
             }
         }
     }
@@ -105,7 +129,7 @@ class PostItemViewModel @Inject constructor(
     }
 
     fun clearSubmitSuccess() {
-        _submitSuccess.value = null
+        _uiState.update { it.copy(submitSuccess = null) }
     }
 
     fun clearDraft() {

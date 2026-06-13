@@ -18,14 +18,10 @@
     <color name="outline">#727785</color>
     <color name="outline_variant">#C1C6D6</color>
     <color name="error">#BA1A1A</color>
-    <color name="error_container">#FFDAD6</color>
-    <color name="on_error_container">#93000A</color>
     <color name="status_lost_bg">#FFCCBC</color>
     <color name="status_lost_text">#BF360C</color>
     <color name="status_found_bg">#C8E6C9</color>
     <color name="status_found_text">#1B5E20</color>
     <color name="status_claimed_bg">#E0E0E0</color>
     <color name="status_claimed_text">#616161</color>
-    <color name="white">#FFFFFF</color>
-    <color name="black">#000000</color>
 </resources>

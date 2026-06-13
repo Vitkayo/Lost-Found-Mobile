@@ -1,9 +1,6 @@
 package com.example.lostfound.ui.profile
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.lostfound.data.ItemRepository
 import com.example.lostfound.model.Item
@@ -11,53 +8,47 @@ import com.example.lostfound.service.SessionManager
 import com.example.lostfound.util.CredentialUtils
 import com.example.lostfound.util.ItemSort
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+data class ProfileUiState(
+    val myItems: List<Item> = emptyList(),
+    val isLoading: Boolean = false,
+    val userName: String = "",
+    val email: String = "",
+    val studentId: String = "",
+    val phone: String = "",
+    val profileImage: String = "",
+    val totalPosts: Int = 0,
+    val lostCount: Int = 0,
+    val foundCount: Int = 0
+)
+
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
-    application: Application,
+    private val sessionManager: SessionManager,
     private val repository: ItemRepository
-) : AndroidViewModel(application) {
+) : ViewModel() {
 
-    private val sessionManager = SessionManager(application)
+    private val _uiState = MutableStateFlow(ProfileUiState())
+    val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
-    private val _myItems = MutableLiveData<List<Item>>(emptyList())
-    val myItems: LiveData<List<Item>> = _myItems
-
-    private val _isLoading = MutableLiveData(false)
-    val isLoading: LiveData<Boolean> = _isLoading
-
-    private val _userName = MutableLiveData(sessionManager.getUserName())
-    val userName: LiveData<String> = _userName
-
-    private val _email = MutableLiveData(sessionManager.getEmail())
-    val email: LiveData<String> = _email
-
-    private val _studentId = MutableLiveData(sessionManager.getStudentId())
-    val studentId: LiveData<String> = _studentId
-
-    private val _phone = MutableLiveData(sessionManager.getPhone())
-    val phone: LiveData<String> = _phone
-
-    private val _profileImage = MutableLiveData(sessionManager.getProfileImage())
-    val profileImage: LiveData<String> = _profileImage
-
-    private val _totalPosts = MutableLiveData(0)
-    val totalPosts: LiveData<Int> = _totalPosts
-
-    private val _lostCount = MutableLiveData(0)
-    val lostCount: LiveData<Int> = _lostCount
-
-    private val _foundCount = MutableLiveData(0)
-    val foundCount: LiveData<Int> = _foundCount
+    init {
+        refreshUserInfo()
+    }
 
     fun refreshUserInfo() {
-        _userName.value = sessionManager.getUserName()
-        _email.value = sessionManager.getEmail()
-        _studentId.value = sessionManager.getStudentId()
-        _phone.value = sessionManager.getPhone()
-        _profileImage.value = sessionManager.getProfileImage()
+        _uiState.update { it.copy(
+            userName = sessionManager.getUserName(),
+            email = sessionManager.getEmail(),
+            studentId = sessionManager.getStudentId(),
+            phone = sessionManager.getPhone(),
+            profileImage = sessionManager.getProfileImage()
+        )}
     }
 
     sealed class ProfileUpdateResult {
@@ -96,7 +87,7 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun loadMyItemsIfNeeded() {
-        if (!_myItems.value.isNullOrEmpty() || _isLoading.value == true) return
+        if (_uiState.value.myItems.isNotEmpty() || _uiState.value.isLoading) return
         loadMyItems()
     }
 
@@ -106,7 +97,7 @@ class ProfileViewModel @Inject constructor(
 
     fun loadMyItems() {
         viewModelScope.launch {
-            _isLoading.value = true
+            _uiState.update { it.copy(isLoading = true) }
             val currentUser = sessionManager.getUserName().lowercase()
             try {
                 val data = repository.getItems()
@@ -115,14 +106,15 @@ class ProfileViewModel @Inject constructor(
                         it.reporterName?.lowercase() ==
                         sessionManager.getEmail().substringBefore("@").lowercase()
                 }
-                _myItems.value = ItemSort.newestFirst(mine)
-                _totalPosts.value = mine.size
-                _lostCount.value = mine.count { it.status.equals("lost", ignoreCase = true) }
-                _foundCount.value = mine.count { it.status.equals("found", ignoreCase = true) }
+                _uiState.update { it.copy(
+                    myItems = ItemSort.newestFirst(mine),
+                    totalPosts = mine.size,
+                    lostCount = mine.count { item -> item.status.equals("lost", ignoreCase = true) },
+                    foundCount = mine.count { item -> item.status.equals("found", ignoreCase = true) },
+                    isLoading = false
+                )}
             } catch (e: Exception) {
-                _myItems.value = emptyList()
-            } finally {
-                _isLoading.value = false
+                _uiState.update { it.copy(myItems = emptyList(), isLoading = false) }
             }
         }
     }

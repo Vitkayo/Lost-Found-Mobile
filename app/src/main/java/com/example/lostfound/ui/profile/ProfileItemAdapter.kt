@@ -34,10 +34,14 @@ class ProfileItemAdapter(
     ) : RecyclerView.ViewHolder(binding.root) {
 
         fun bind(item: Item) {
+            val context = binding.root.context
             binding.itemTitle.text = item.title.orEmpty()
-            binding.itemDate.text = "Reported: ${DateUtils.formatPostedDate(item.createdAt ?: item.date)}"
+            binding.itemDate.text = context.getString(
+                com.example.lostfound.R.string.item_reported_at,
+                DateUtils.formatPostedDate(item.createdAt ?: item.date)
+            )
             binding.itemLocation.text = item.location.orEmpty()
-            StatusUtils.applyStatusBadge(binding.root.context, item.status, binding.statusBadge)
+            StatusUtils.applyStatusBadge(context, item.status, binding.statusBadge)
             ImageLoader.loadThumbnail(binding.itemImage, item.imageUrl)
             binding.root.setOnClickListener { onItemClick(item) }
             binding.deleteButton.setOnClickListener { onDeleteClick(item) }

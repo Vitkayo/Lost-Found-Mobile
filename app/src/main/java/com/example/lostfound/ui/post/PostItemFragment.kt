@@ -9,6 +9,11 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import androidx.core.content.ContextCompat
 import androidx.core.view.doOnLayout
 import androidx.appcompat.app.AppCompatActivity
@@ -170,20 +175,21 @@ class PostItemFragment : Fragment() {
     }
 
     private fun restoreDraft() {
-        binding.titleInput.setText(viewModel.title.value)
-        binding.categoryInput.setText(viewModel.category.value, false)
-        binding.descriptionInput.setText(viewModel.description.value)
-        binding.locationInput.setText(viewModel.location.value)
-        val draftContact = viewModel.contact.value.orEmpty()
+        val state = viewModel.uiState.value
+        binding.titleInput.setText(state.title)
+        binding.categoryInput.setText(state.category, false)
+        binding.descriptionInput.setText(state.description)
+        binding.locationInput.setText(state.location)
+        val draftContact = state.contact
         binding.contactInput.setText(
             draftContact.ifBlank { sessionManager.getDefaultContact() }
         )
-        binding.dateInput.setText(viewModel.date.value)
+        binding.dateInput.setText(state.date)
 
-        isLostSelected = viewModel.status.value != "found"
+        isLostSelected = state.status != "found"
         updateStatusSelection(isLostSelected, animate = false)
 
-        val image = viewModel.imageUrl.value.orEmpty()
+        val image = state.imageUrl
         ImageStorageUtil.pathFromDraftValue(image)?.let { path ->
             savedImagePath = path
             showImagePreview(path)
@@ -287,28 +293,28 @@ class PostItemFragment : Fragment() {
     }
 
     private fun observeViewModel() {
-        viewModel.error.observe(viewLifecycleOwner) { error ->
-            if (!error.isNullOrBlank()) {
-                binding.formErrorText.visibility = View.VISIBLE
-                binding.formErrorText.text = error
-            } else {
-                binding.formErrorText.visibility = View.GONE
-            }
-        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.uiState.collectLatest { state ->
+                    if (state.error != null) {
+                        binding.formErrorText.visibility = View.VISIBLE
+                        binding.formErrorText.text = state.error
+                    } else {
+                        binding.formErrorText.visibility = View.GONE
+                    }
 
-        viewModel.isSubmitting.observe(viewLifecycleOwner) { submitting ->
-            binding.submitProgress.visibility = if (submitting) View.VISIBLE else View.GONE
-            binding.submitButton.isEnabled = !submitting
-        }
+                    binding.submitProgress.visibility = if (state.isSubmitting) View.VISIBLE else View.GONE
+                    binding.submitButton.isEnabled = !state.isSubmitting
 
-        viewModel.submitSuccess.observe(viewLifecycleOwner) { success ->
-            if (success == true) {
-                Snackbar.make(binding.root, R.string.success_post, Snackbar.LENGTH_SHORT).show()
-                viewModel.clearDraft()
-                clearFormUi()
-                homeViewModel.refreshAfterNewPost(viewModel.takeCreatedItem())
-                findNavController().navigate(R.id.homeFragment)
-                viewModel.clearSubmitSuccess()
+                    if (state.submitSuccess == true) {
+                        Snackbar.make(binding.root, R.string.success_post, Snackbar.LENGTH_SHORT).show()
+                        viewModel.clearDraft()
+                        clearFormUi()
+                        homeViewModel.refreshAfterNewPost(viewModel.takeCreatedItem())
+                        findNavController().navigate(R.id.homeFragment)
+                        viewModel.clearSubmitSuccess()
+                    }
+                }
             }
         }
     }

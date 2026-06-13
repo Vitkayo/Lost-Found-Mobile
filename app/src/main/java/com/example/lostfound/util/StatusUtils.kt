@@ -7,32 +7,27 @@ import com.example.lostfound.R
 
 object StatusUtils {
 
-    fun normalizeStatus(status: String?): String {
+    fun normalizeStatus(context: Context, status: String?): String {
         return when (status?.lowercase(java.util.Locale.getDefault())) {
-            "lost" -> "Lost"
-            "found" -> "Found"
-            "claimed" -> "Claimed"
+            "lost" -> context.getString(R.string.status_lost)
+            "found" -> context.getString(R.string.status_found)
+            "claimed" -> context.getString(R.string.status_claimed)
             else -> status?.replaceFirstChar { it.uppercase() } ?: "Unknown"
         }
     }
 
     fun applyStatusBadge(context: Context, status: String?, badgeView: android.widget.TextView) {
-        val normalized = normalizeStatus(status)
+        val normalized = normalizeStatus(context, status)
         badgeView.text = normalized
 
-        val (bgColor, textColor) = when (normalized.lowercase()) {
-            "lost" -> R.color.status_lost_bg to R.color.status_lost_text
-            "found" -> R.color.status_found_bg to R.color.status_found_text
-            "claimed" -> R.color.status_claimed_bg to R.color.status_claimed_text
-            else -> R.color.surface_container_high to R.color.on_surface_variant
+        val (bgRes, textColor) = when (status?.lowercase()) {
+            "lost" -> R.drawable.bg_status_lost to R.color.status_lost_text
+            "found" -> R.drawable.bg_status_found to R.color.status_found_text
+            "claimed" -> R.drawable.bg_status_claimed to R.color.status_claimed_text
+            else -> R.drawable.bg_status_default to R.color.on_surface_variant
         }
 
-        val drawable = GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = 999f
-            setColor(ContextCompat.getColor(context, bgColor))
-        }
-        badgeView.background = drawable
+        badgeView.setBackgroundResource(bgRes)
         badgeView.setTextColor(ContextCompat.getColor(context, textColor))
     }
 

@@ -9,9 +9,17 @@ import com.example.lostfound.model.Item
 import com.example.lostfound.util.ItemSort
 import com.example.lostfound.util.StatusUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -25,56 +33,52 @@ class HomeViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-    private var allItems: List<Item> = emptyList()
     private var scrollState: Parcelable? = savedStateHandle.get<Parcelable>("recycler_scroll_state")
 
     init {
-        _uiState.update { it.copy(
-            searchQuery = savedStateHandle["search_query"] ?: "",
-            selectedFilter = savedStateHandle["selected_filter"] ?: "All"
-        )}
-        loadItems()
-    }
+        _uiState.update { state ->
+            state.copy(
+                searchQuery = savedStateHandle["search_query"] ?: "",
+                selectedFilter = savedStateHandle["selected_filter"] ?: "All"
+            )
+        }
 
-    fun saveScrollState(state: Parcelable?) {
-        scrollState = state
-        savedStateHandle["recycler_scroll_state"] = state
-    }
-
-    fun getScrollState(): Parcelable? = scrollState
-
-    fun loadItems() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-            
-            // Try to load cached items first for immediate UI
-            val cached = repository.getCachedItems()
-            if (cached.isNotEmpty()) {
-                allItems = cached
-                applyFilters()
-            }
-
-            try {
-                val remote = repository.getItems()
-                allItems = remote
-                _uiState.update { it.copy(isLoading = false) }
-                applyFilters()
-            } catch (e: Exception) {
-                _uiState.update { it.copy(
-                    isLoading = false,
-                    error = e.message ?: "Failed to load items"
-                )}
+            repository.recentItemsFlow.collectLatest { recent ->
+                _uiState.update { it.copy(recentItems = recent) }
             }
         }
+
+        viewModelScope.launch {
+            combine(
+                repository.itemsFlow,
+                _uiState.map { it.searchQuery }.distinctUntilChanged().debounce(300).onStart { emit(_uiState.value.searchQuery) },
+                _uiState.map { it.selectedFilter }.distinctUntilChanged()
+            ) { items, query, filter ->
+                ItemSort.newestFirst(
+                    items.filter { item ->
+                        StatusUtils.matchesSearch(item, query) && StatusUtils.matchesFilter(item, filter)
+                    }
+                )
+            }.flowOn(Dispatchers.Default)
+                .collectLatest { filteredItems ->
+                    _uiState.update { it.copy(items = filteredItems, isLoading = false) }
+                }
+        }
+
+        refreshItems()
+    }
+
+    fun loadItems() {
+        refreshItems()
     }
 
     fun refreshItems() {
         viewModelScope.launch {
             _uiState.update { it.copy(isRefreshing = true, error = null) }
             try {
-                allItems = repository.getItems()
+                repository.refreshItems()
                 _uiState.update { it.copy(isRefreshing = false) }
-                applyFilters()
             } catch (e: Exception) {
                 _uiState.update { it.copy(
                     isRefreshing = false,
@@ -85,46 +89,34 @@ class HomeViewModel @Inject constructor(
     }
 
     fun refreshAfterNewPost(createdItem: Item? = null) {
-        _uiState.update { it.copy(
-            selectedFilter = "All",
-            searchQuery = ""
-        )}
+        _uiState.update { state ->
+            state.copy(
+                selectedFilter = "All",
+                searchQuery = ""
+            )
+        }
         savedStateHandle["selected_filter"] = "All"
         savedStateHandle["search_query"] = ""
         clearScrollState()
-        
-        if (createdItem != null) {
-            allItems = ItemSort.newestFirst(
-                listOf(createdItem) + allItems.filter { it.id != createdItem.id }
-            )
-            applyFilters()
-        }
         refreshItems()
     }
 
     fun setSearchQuery(query: String) {
         _uiState.update { it.copy(searchQuery = query) }
         savedStateHandle["search_query"] = query
-        applyFilters()
     }
 
     fun setSelectedFilter(filter: String) {
         _uiState.update { it.copy(selectedFilter = filter) }
         savedStateHandle["selected_filter"] = filter
-        applyFilters()
     }
 
-    private fun applyFilters() {
-        val query = _uiState.value.searchQuery
-        val filter = _uiState.value.selectedFilter
-
-        val filtered = ItemSort.newestFirst(
-            allItems.filter { item ->
-                StatusUtils.matchesSearch(item, query) && StatusUtils.matchesFilter(item, filter)
-            }
-        )
-        _uiState.update { it.copy(items = filtered) }
+    fun saveScrollState(state: Parcelable?) {
+        scrollState = state
+        savedStateHandle["recycler_scroll_state"] = state
     }
+
+    fun getScrollState(): Parcelable? = scrollState
 
     fun clearScrollState() {
         scrollState = null

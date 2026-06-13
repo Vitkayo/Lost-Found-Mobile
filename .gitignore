@@ -50,6 +50,13 @@ stitch_campus_lost_found/
 # Cursor IDE
 .cursor/
 
+# VS Code
+.vscode/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
 # Optional: keep secrets out of repo
 *.keystore
 *.jks

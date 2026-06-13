@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">សាកលវិទ្យាល័យ Campus Found</string>
+    <string name="login_title">ចូលប្រើប្រាស់</string>
+    <string name="register_title">ចុះឈ្មោះ</string>
+    <string name="email_hint">អុីមែល ឬ លេខទូរស័ព្ទ</string>
+    <string name="password_hint">ពាក្យសម្ងាត់</string>
+    <string name="login_button">ចូល</string>
+    <string name="register_link">មិនទាន់មានគណនី? ចុះឈ្មោះនៅទីនេះ</string>
+    
+    <string name="nav_home">ទំព័រដើម</string>
+    <string name="nav_report">រាយការណ៍</string>
+    <string name="nav_profile">គណនី</string>
+    
+    <string name="search_hint">ស្វែងរករបស់របរ…</string>
+    <string name="filter_all">ទាំងអស់</string>
+    <string name="filter_lost">បាត់</string>
+    <string name="filter_found">ឃើញ</string>
+    
+    <string name="post_item_title">រាយការណ៍របស់របរ</string>
+    <string name="item_title_hint">ចំណងជើង</string>
+    <string name="category_hint">ប្រភេទ</string>
+    <string name="location_hint">ទីតាំង</string>
+    <string name="description_hint">ព័ត៌មានលម្អិត</string>
+    <string name="contact_hint">ព័ត៌មានទំនាក់ទំនង</string>
+    <string name="submit_button">ដាក់ស្នើ</string>
+    
+    <string name="profile_title">គណនីរបស់ខ្ញុំ</string>
+    <string name="logout">ចាកចេញ</string>
+    <string name="delete">លុប</string>
+    
+    <string name="item_meta_format">%1$s • %2$s</string>
+    <string name="item_reported_at">បានរាយការណ៍នៅ: %1$s</string>
+    <string name="status_lost">បាត់</string>
+    <string name="status_found">ឃើញ</string>
+</resources>

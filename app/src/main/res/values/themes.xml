@@ -23,11 +23,6 @@
         <item name="android:enforceNavigationBarContrast" tools:targetApi="29">false</item>
     </style>
 
-    <style name="Widget.CampusFound.Chip" parent="Widget.Material3.Chip.Filter">
-        <item name="chipCornerRadius">999dp</item>
-        <item name="chipMinHeight">36dp</item>
-    </style>
-
     <style name="Widget.CampusFound.Button.Primary" parent="Widget.Material3.Button">
         <item name="cornerRadius">999dp</item>
         <item name="backgroundTint">@color/primary_container</item>
