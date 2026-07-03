@@ -1,8 +1,8 @@
-# Campus Found
+# Campus Found Mobile
 
-Campus Found is an Android lost-and-found app for campus use. Students can browse items as guests, search and filter listings, and sign in to report lost or found items and manage their profile.
+Campus Found Mobile is a native Android lost-and-found app for campus use. Students can browse lost and found items as guests, search and filter listings, sign in, report items, manage their posts, and keep basic profile information in sync with a demo backend.
 
-This is a **student portfolio / demo release**. It does not include an admin dashboard or staff moderation tools.
+This repository contains the Android mobile app only. It is separate from the Campus Found Laravel website and is presented as a student portfolio / demo project.
 
 ## Screenshots
 
@@ -10,58 +10,60 @@ This is a **student portfolio / demo release**. It does not include an admin das
 | --- | --- | --- | --- |
 | ![Login screen](screenshots/login.png) | ![Home screen](screenshots/home.png) | ![Report screen](screenshots/report.png) | ![Profile screen](screenshots/profile.png) |
 
-## Features
+## Highlights
 
-| Area | What students can do |
-| --- | --- |
-| Guest mode | Browse Home, search, filter, and view item details without logging in |
-| Account | Register, login with email or phone, reset password, edit profile, logout |
-| Home | Browse items, search, filter by status or category, pull to refresh |
-| Report | Post a lost or found item with optional photo, free-text location, and contact info |
-| Detail | View item photo, status, location, reporter, and contact action |
-| Profile | View stats, manage own posts, delete own posts, sync edits to MockAPI |
-| App | Light/dark mode, Room cache fallback when network fails |
+- Guest browsing with search, filtering, pull-to-refresh, and item detail pages.
+- Email or phone login, registration, password reset, profile editing, and logout.
+- Lost/found item reporting with category, status, location, contact details, and optional photos.
+- Profile dashboard with user stats, owned posts, edit support, and delete support.
+- Room cache fallback so previously loaded items remain available when the network fails.
+- Light and dark theme support.
+- Optional Firebase Storage image upload with a base64 fallback for demo use.
 
 ## Tech Stack
 
 | Layer | Tools |
 | --- | --- |
 | Language | Kotlin |
-| UI | Material 3, View Binding, Navigation Component |
-| Architecture | MVVM, Repository pattern, Hilt (DI) |
+| UI | Android Views, Material Components, View Binding, Navigation Component |
+| Architecture | MVVM, Repository pattern, Hilt dependency injection |
 | Networking | Retrofit, Gson, MockAPI |
-| Local storage | Room (offline item cache) |
-| Async | Coroutines, StateFlow |
-| Images | Glide; Firebase Storage optional, base64 fallback for demo |
-| Testing | Espresso instrumented tests, Room instrumentation tests |
+| Local storage | Room |
+| Async | Kotlin Coroutines, Flow / StateFlow |
+| Images | Glide, Firebase Storage optional |
+| Testing | Gradle unit test task, Espresso instrumented tests, Room instrumentation tests |
 
 ## Architecture
 
-```
-UI (Activities / Fragments)
+```text
+Activities / Fragments
         ↓
-ViewModels (StateFlow)
+ViewModels
         ↓
-Repositories (ItemRepository, UserRepository)
+Repositories
         ↓
-Retrofit (MockAPI)  +  Room (cached_items)
+Retrofit / MockAPI  +  Room cache
 ```
 
-- **Guest users** can browse Home; Report and Profile require login (`MainActivity` navigation guard).
-- **Offline fallback:** if the items API fails, the app reads from Room cache when data exists.
-- **Auth:** login, register, forgot password, and profile edits sync to MockAPI `/user`.
+Key implementation notes:
+
+- Guest users can browse Home and item details.
+- Report and Profile are protected by a login guard in `MainActivity`.
+- `ItemRepository` syncs remote items from MockAPI and stores them in Room for offline fallback.
+- Auth, registration, forgot password, and profile edits are backed by MockAPI `/user`.
+- Photo uploads use Firebase Storage when `app/google-services.json` is configured; otherwise the app uses a demo-friendly base64 fallback.
 
 ## Demo Flow
 
-1. Open the app and browse Home as a guest.
-2. Search, use filter chips, and open an item detail page.
-3. Tap Report or Profile to see the login-required prompt.
-4. Register a new account, or sign in with a demo account (below).
-5. Use **Forgot password?** on the login screen to reset via MockAPI.
-6. Report a lost or found item — enter location as free text (e.g. `A610, Library`).
-7. Return to Home, pull to refresh, then open Profile and logout.
+1. Open the app and continue as a guest.
+2. Browse Home, search, filter by status/category, and open an item detail page.
+3. Tap Report or Profile to see the login-required flow.
+4. Register a new account or sign in with a demo account.
+5. Use Forgot Password on the login screen to reset a MockAPI demo account.
+6. Report a lost or found item with a location and contact method.
+7. Refresh Home, open Profile, review your posts, then logout.
 
-## Demo Accounts (MockAPI)
+## Demo Accounts
 
 | Email | Password |
 | --- | --- |
@@ -78,51 +80,108 @@ You can also register a new account from the login screen.
 - Android Studio Ladybug or newer
 - JDK 11+
 - Android SDK 35
-- Emulator or device (API 28+)
+- Android device or emulator with API 28+
 
-### Run locally
+### Setup
 
 ```bash
 git clone https://github.com/bundavit/Campus-Found-Mobile.git
 cd Campus-Found-Mobile
-# Copy local.properties.example → local.properties and set sdk.dir
+```
+
+Create a local SDK config:
+
+```bash
+cp local.properties.example local.properties
+```
+
+Then update `local.properties` with your Android SDK path.
+
+Firebase is optional for the demo. If you want Firebase Storage uploads, copy `app/google-services.json.example` to `app/google-services.json` and replace the placeholder values with your Firebase Android app configuration. Do not commit the real `google-services.json` file.
+
+### Build and Run
+
+```bash
 ./gradlew assembleDebug
 ./gradlew installDebug
 ```
 
-### Tests
+On Windows PowerShell:
+
+```powershell
+.\gradlew.bat assembleDebug
+.\gradlew.bat installDebug
+```
+
+## Testing and Quality Checks
+
+Run the local unit test task:
 
 ```bash
 ./gradlew testDebugUnitTest
-./gradlew connectedDebugAndroidTest   # requires emulator/device
 ```
+
+Run Android Lint:
+
+```bash
+./gradlew lintDebug
+```
+
+Run instrumented tests with an emulator or device connected:
+
+```bash
+./gradlew connectedDebugAndroidTest
+```
+
+Latest local verification:
+
+- `.\gradlew.bat clean testDebugUnitTest assembleDebug` passed.
+- `.\gradlew.bat lintDebug` passed with warnings only.
 
 ## Backend
 
-- **MockAPI base URL:** `https://6a1460d76c7db8aac05469d9.mockapi.io/`
-- **Users** — `GET/POST/PUT /user` for auth, registration, profile, password reset
-- **Items** — `GET/POST/PUT/DELETE /items` for lost and found posts
-- **Photos** — Firebase Storage when `app/google-services.json` is present; otherwise base64 fallback (see `google-services.json.example`)
+The demo backend uses MockAPI:
+
+- Base URL: `https://6a1460d76c7db8aac05469d9.mockapi.io/`
+- Users: `GET/POST/PUT /user`
+- Items: `GET/POST/PUT/DELETE /items`
+- Photos: Firebase Storage when configured, otherwise base64 fallback
 
 ## Project Info
 
-| | |
+| Property | Value |
 | --- | --- |
 | Application ID | `com.lostfound` |
 | Namespace | `com.example.lostfound` |
-| Version | `1.1` (code `2`) |
+| Version | `1.1` (`versionCode` 2) |
 | Min SDK | 28 |
-| Target / Compile SDK | 35 |
+| Target SDK | 35 |
+| Compile SDK | 35 |
 
-## Known Limitations (Demo)
+## Repository Hygiene
 
-This app is intentionally scoped for a student demo. A production release would differ:
+The repository intentionally excludes local and generated files such as:
 
-- Passwords are stored in **plain text** on MockAPI and in **SharedPreferences** for profile sync — use token-based auth and EncryptedSharedPreferences in production.
-- No admin moderation, push notifications, or email verification.
-- Khmer (`values-km`) localization is partial; English is used as fallback for untranslated strings.
-- Release builds do not enable R8 minification in this demo configuration.
+- `local.properties`
+- `.gradle/`, `build/`, and `app/build/`
+- `.idea/`
+- `.env` files
+- real Firebase config files
+- signing keys and release artifacts
+- local demo photo folders
+
+Tracked screenshots and helper scripts are included because they support the portfolio/demo presentation.
+
+## Known Limitations
+
+This app is intentionally scoped as a student demo. A production release would need stronger backend and security design:
+
+- Passwords are stored in plain text on MockAPI for demo purposes.
+- Local profile sync uses SharedPreferences; production should use token-based auth and encrypted storage.
+- There is no admin moderation, push notification system, or email verification.
+- Khmer localization is partial, with English fallback strings.
+- Release builds currently keep R8 minification disabled.
 
 ## License
 
-Student academic / portfolio project. Add a license here if you open-source it publicly.
+No open-source license is currently specified. This repository is shared for academic and portfolio review.
