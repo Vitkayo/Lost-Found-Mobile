@@ -67,7 +67,7 @@ Key implementation notes:
 
 | Email | Password |
 | --- | --- |
-| `vit@gmail.com` | `12345678` |
+| `vit@gmail.com` | `123456` |
 | `demo@test.com` | `123456` |
 | `demo@gmail.com` | `123456` |
 

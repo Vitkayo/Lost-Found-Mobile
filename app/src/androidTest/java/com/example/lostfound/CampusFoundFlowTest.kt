@@ -74,7 +74,7 @@ class CampusFoundFlowTest {
         loginRule.launchActivity(null)
 
         onView(withId(R.id.emailInput)).perform(replaceText("vit@gmail.com"), closeSoftKeyboard())
-        onView(withId(R.id.passwordInput)).perform(typeText("12345678"), closeSoftKeyboard())
+        onView(withId(R.id.passwordInput)).perform(typeText("123456"), closeSoftKeyboard())
         onView(withId(R.id.loginButton)).perform(click())
 
         waitForMainActivity()
