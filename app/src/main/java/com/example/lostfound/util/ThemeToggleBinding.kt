@@ -1,13 +1,16 @@
 package com.example.lostfound.util
 
+import android.content.res.ColorStateList
 import android.util.TypedValue
 import android.widget.ImageButton
 import android.widget.ImageView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.widget.ImageViewCompat
 import androidx.fragment.app.Fragment
 import com.example.lostfound.R
 import com.example.lostfound.service.SessionManager
+import com.example.lostfound.ui.login.LoginActivity
 
 object ThemeToggleBinding {
 
@@ -43,7 +46,16 @@ object ThemeToggleBinding {
             button.scaleX = 1f
             button.contentDescription = activity.getString(R.string.switch_to_dark_mode)
         }
-        ImageViewCompat.setImageTintList(button, null)
+        // Login sits on a blue header → white icon; other screens use primary blue.
+        val tintRes = if (activity is LoginActivity) {
+            R.color.on_primary
+        } else {
+            R.color.primary
+        }
+        ImageViewCompat.setImageTintList(
+            button,
+            ColorStateList.valueOf(ContextCompat.getColor(activity, tintRes))
+        )
         button.invalidate()
     }
 
